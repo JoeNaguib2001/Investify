@@ -1,0 +1,1092 @@
+﻿@model IEnumerable<Investify.Models.Stock>
+
+@{
+    ViewData["Title"] = "قائمة الأسهم";
+}
+
+<div dir="rtl" class="container-fluid mt-4">
+    <!-- Toast container -->
+    <div class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
+        <div id="liveToast" class="toast text-white bg-primary border-0 position-relative shadow" role="alert" aria-live="assertive" aria-atomic="true"
+             style="min-width: 220px; max-width: 300px;">
+
+            <!-- زر الإغلاق -->
+            <div class="d-flex justify-content-between align-items-start px-3 pt-2">
+                <div id="toastMessage" class="me-3">
+                    <!-- هنا هتتحط الرسالة من الجافاسكريبت -->
+                    الرسالة هنا
+                </div>
+                <button type="button" class="btn-close btn-close-white ms-2 mt-1" data-bs-dismiss="toast" aria-label="Close" style="font-size: 0.8rem;"></button>
+            </div>
+
+            <!-- مسافة بسيطة تحت -->
+            <div class="px-3 pb-2"></div>
+        </div>
+    </div>
+
+    <h1 class="text-center mb-4">قائمة الأسهم</h1>
+
+    <table id="stocksTable" class="table table-bordered text-center">
+        <thead>
+            <tr>
+                <th></th>
+                <th></th>
+                <th>مؤشر السهم</th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th></th>
+                <th>القطاع</th>
+                <th>النوع الإضافي</th>
+            </tr>
+            <tr>
+                <th>كود السهم</th>
+                <th>اسم السهم</th>
+                <th>
+                    <select id="IndicatorFilter" class="form-control">
+                        <option value="all" selected>الكل</option>
+                    </select>
+                </th>
+                <th>آخر سعر</th>
+                <th>قمة شهرية</th>
+                <th>النسبة المئوية حتى القمة الشهرية</th>
+                <th>قمة نصف سنوية</th>
+                <th>النسبة المئوية حتى القمة النصف سنوية</th>
+                <th>قمة سنوية</th>
+                <th>النسبة المئوية حتى القمة السنوية</th>
+                <th>قمة تاريخية</th>
+                <th>النسبة المئوية حتى القمة التاريخية</th>
+                <th>
+                    <select id="sectorFilter" class="form-control">
+                        <option value="all" selected>الكل</option>
+                    </select>
+                </th>
+                <th>
+                    <select id="extraFilter" class="form-control">
+                        <option value="all" selected>الكل</option>
+                    </select>
+                </th>
+                <th></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var stock in Model)
+            {
+                <tr data-code="@stock.Code" data-name="@stock.Name" data-price="@stock.LastPrice">
+                    <td class="stockCode">@stock.Code</td>
+                    <td contenteditable="true" class="editable stockName">@stock.Name</td>
+                    <td contenteditable="true" class="editable">@stock.Indicator</td>
+                    <td contenteditable="true" class="editable stockPrice">@stock.LastPrice</td>
+                    <td contenteditable="true" class="editable">@stock.MonthlyPeak</td>
+                    <td class="editable" dir="ltr">@($"{stock.DistanceFromMonthlyPeakPercent}%")</td>
+                    <td contenteditable="true" class="editable">@stock.SixMonthsPeak</td>
+                    <td class="editable" dir="ltr">@($"{stock.DistanceFromSixMonthPeakPercent}%")</td>
+                    <td contenteditable="true" class="editable">@stock.YearPeak</td>
+                    <td class="editable" dir="ltr">@($"{stock.DistanceFromYearPeakPercent}%")</td>
+                    <td contenteditable="true" class="editable">@stock.AllTimePeak</td>
+                    <td class="editable" dir="ltr">@($"{stock.DistanceFromAllTimePeakPercent}%")</td>
+                    <td contenteditable="true" class="editable">@stock.Sector</td>
+                    <td contenteditable="true" class="editable">@stock.ExtraSector</td>
+                    <td>
+                        <button class="btn btn-success btn-sm buy-btn" data-stock-code="@stock.Code">شراء</button>
+                    </td>
+                    <td>
+                        <button class="btn btn-danger btn-sm sell-btn" data-stock-code="@stock.Code">بيع</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<div class="modal fade" id="tradeModal" tabindex="-1" aria-labelledby="tradeModalLabel" aria-hidden="true" dir="rtl">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content" id="tradeModalContent">
+            <div class="modal-header">
+                <h5 class="modal-title w-100 text-center" id="tradeModalLabel">تنفيذ العملية</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="mt-4">
+                    <h6 class="mb-3">محافظك</h6>
+                    <div class="accordion" id="walletsAccordion">
+
+                    </div>
+                </div>
+                <form id="tradeForm">
+                    <div class="mb-3">
+                        <label for="stockInput" class="form-label">اختر السهم</label>
+                        <input type="text" id="stockInput" class="form-control text-end" list="stocksList" placeholder="اختر السهم أو اكتب اسمه أو كوده">
+                        <datalist id="stocksList">
+                            @foreach (var stock in Model)
+                            {
+                                <option value="@($"{stock.Code} | {stock.Name}")"></option>
+                            }
+                        </datalist>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label d-block">نوع العملية</label>
+                        <div id="tradeTypeRadio" class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="tradeType" id="tradeBuy" value="Buy" checked>
+                                <label class="form-check-label" for="tradeBuy">شراء</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="tradeType" id="tradeSell" value="Sell">
+                                <label class="form-check-label" for="tradeSell">بيع</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="stockPrice" class="form-label">سعر السهم</label>
+                        <input type="text" step="0.01" class="form-control text-end" id="stockPrice" value="" />
+                    </div>
+                    <div class="row align-items-center mb-3">
+                        <div class="col-md-6">
+                            <label for="quantity" class="form-label">الكمية</label>
+                            <input type="text" class="form-control text-end" id="quantity" required>
+                        </div>
+
+                        <div class="col-md-6 text-end">
+                            <label class="form-label invisible">placeholder</label>
+                            <div class="form-text text-muted text-end" id="availableQuantityText" style="white-space: nowrap;">
+                                <!-- سيتم ملء هذه القيمة ديناميكياً -->
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="row align-items-center mb-3">
+                        <div class="col-md-6">
+                            <label for="total" class="form-label">الإجمالي</label>
+                            <input type="text" class="form-control text-end" id="total" readonly>
+                        </div>
+
+                        <div class="col-md-6 text-end">
+                            <label class="form-label invisible">placeholder</label>
+                            <div class="form-text text-muted text-end fw-bold" id="remainingBalanceText" style="white-space: nowrap;">
+                                <!-- سيتم ملء هذه القيمة ديناميكياً -->
+                            </div>
+                        </div>
+                    </div>
+
+
+                </form>
+                
+            </div>
+
+            <div class="modal-footer d-flex justify-content-center">
+                <button type="button" class="btn btn-primary" style="width:40%" id="confirmTradeBtn">تأكيد</button>
+                <button type="button" class="btn btn-secondary" style="width:40%" data-bs-dismiss="modal">إلغاء</button>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+    #stocksTable tbody tr:nth-child(even) {
+        background-color: #f9f9f9 !important;
+    }
+
+    #stocksTable tbody tr:nth-child(odd) {
+        background-color: #e6e6e6 !important;
+    }
+
+    #stocksTable tbody tr:hover {
+        background-color: #c6c6c6 !important;
+    }
+
+    th, td {
+        text-align: center !important;
+        vertical-align: middle !important;
+    }
+
+    /* ثيم الشراء (أخضر) */
+    .theme-buy {
+        background-color: #e6f4ea !important; /* خلفية خضراء فاتحة */
+        border: 2px solid #28a745 !important; /* حدود خضراء */
+    }
+
+        .theme-buy .modal-header {
+            background-color: #28a745 !important; /* رأس المودال أخضر */
+            color: white !important;
+        }
+
+        .theme-buy .btn-primary {
+            background-color: #218838 !important;
+            border-color: #1e7e34 !important;
+        }
+
+            .theme-buy .btn-primary:hover {
+                background-color: #1e7e34 !important;
+            }
+
+        .theme-buy .form-control:focus {
+            border-color: #28a745 !important;
+            box-shadow: 0 0 5px rgba(40, 167, 69, 0.5) !important;
+        }
+
+    /* ثيم البيع (أحمر) */
+    .theme-sell {
+        background-color: #f8e1e1 !important; /* خلفية حمراء فاتحة */
+        border: 2px solid #dc3545 !important; /* حدود حمراء */
+    }
+
+        .theme-sell .modal-header {
+            background-color: #dc3545 !important; /* رأس المودال أحمر */
+            color: white !important;
+        }
+
+        .theme-sell .btn-primary {
+            background-color: #c82333 !important;
+            border-color: #bd2130 !important;
+        }
+
+            .theme-sell .btn-primary:hover {
+                background-color: #bd2130 !important;
+            }
+
+        .theme-sell .form-control:focus {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 5px rgba(220, 53, 69, 0.5) !important;
+        }
+
+    /* أنماط عامة للمودال */
+    .modal-content {
+        transition: all 0.3s ease; /* تأثير انتقال سلس لتغيير الثيم */
+    }
+    /* مودال دارك */
+    #tradeModal .modal-content {
+        background-color: #121212; /* خلفية داكنة */
+        color: #e0e0e0; /* لون نص فاتح */
+        border-radius: 8px;
+    }
+
+    /* ترويسة المودال */
+    #tradeModal .modal-header {
+        border-bottom: 1px solid #333;
+    }
+
+    /* أزرار الإغلاق */
+    #tradeModal .btn-close {
+        filter: invert(1); /* عشان تبان في الخلفية الداكنة */
+    }
+
+    /* الجسم (المودال بدي) */
+    #tradeModal .modal-body {
+        background-color: #181818;
+    }
+
+    /* جدول الأسهم */
+    #tradeModal table {
+        background-color: #1e1e1e;
+        color: #e0e0e0;
+    }
+
+        /* رؤوس الجدول */
+        #tradeModal table thead th {
+            border-bottom: 2px solid #333;
+            color: #ccc;
+        }
+
+        /* صفوف الجدول */
+        #tradeModal table tbody tr {
+            border-bottom: 1px solid #333;
+        }
+
+    /* حقول الإدخال */
+    #tradeModal input.form-control,
+    #tradeModal select.form-select {
+        background-color: #2a2a2a;
+        color: #e0e0e0;
+        border: 1px solid #444;
+    }
+
+        /* عند التركيز على الحقول */
+        #tradeModal input.form-control:focus,
+        #tradeModal select.form-select:focus {
+            background-color: #333;
+            color: #fff;
+            border-color: #555;
+            box-shadow: none;
+        }
+
+    /* ألوان النصوص الخضراء */
+    #tradeModal .text-success {
+        color: #28a745 !important;
+        font-weight: bold;
+    }
+
+    /* ألوان النصوص الحمراء */
+    #tradeModal .text-danger {
+        color: #dc3545 !important;
+        font-weight: bold;
+    }
+
+    /* أزرار الفوتر */
+    #tradeModal .modal-footer {
+        border-top: 1px solid #333;
+        background-color: #121212;
+    }
+
+    /* صغر حجم الراديو */
+    /* نخفي الراديو الأساسي */
+    .wallet-radio {
+        display: none;
+    }
+
+    /* شكل الراديو المخصص */
+    .wallet-radio-wrapper {
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+    }
+
+    .custom-radio {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #888;
+        border-radius: 50%;
+        display: inline-block;
+        position: relative;
+        margin-inline-start: 6px;
+    }
+
+        /* الدائرة الداخلية */
+        .custom-radio::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background-color: #28a745; /* اللون الأخضر */
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: scale(0) translate(-50%, -50%);
+            transition: transform 0.2s ease;
+        }
+
+    /* لما الراديو يتحدد */
+    .wallet-radio:checked + .custom-radio::after {
+        transform: scale(1) translate(-50%, -50%);
+    }
+
+
+    /* لو حابب تظلل العنصر كله لما يتم اختياره */
+    .accordion-item.selected-wallet {
+        border: 2px solid #28a745;
+        box-shadow: 0 0 8px rgba(40, 167, 69, 0.4);
+        border-radius: 5px;
+    }
+
+</style>
+@section Scripts {
+    <script src="https://cdn.datatables.net/colreorder/1.6.2/js/dataTables.colReorder.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script>
+        function updateTheme() {
+            const content = document.getElementById('tradeModalContent');
+            const buy = document.getElementById('tradeBuy').checked;
+
+            // امسح الكلاسات القديمة
+            content.classList.remove('theme-buy', 'theme-sell');
+
+            // ضيف الكلاس حسب الاختيار
+            if (buy) {
+                content.classList.add('theme-buy');
+            } else {
+                content.classList.add('theme-sell');
+            }
+        }
+
+        // إضافة الحدث عند تغيير الراديو
+        document.querySelectorAll('input[name="tradeType"]').forEach(radio => {
+            radio.addEventListener('change', updateTheme);
+        });
+
+        // عند فتح المودال أو تحميل الصفحة
+        document.addEventListener('DOMContentLoaded', updateTheme);
+    </script>
+    <script>
+            var isUpdating = false;
+
+            // تهيئة DataTable (زي ما هي)
+            var table = $('#stocksTable').DataTable({
+                paging: true,
+                searching: true,
+                ordering: true,
+                colReorder: true,
+                language: {
+                    search: "بحث:",
+                    lengthMenu: "عرض _MENU_ صف",
+                    info: "عرض _START_ إلى _END_ من أصل _TOTAL_",
+                    paginate: {
+                        previous: "السابق",
+                        next: "التالي"
+                    }
+                },
+                lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "الكل"]],
+                pageLength: -1,
+                columnDefs: [
+                    {
+                        targets: [2, 12, 13,14,15],
+                        orderable: false
+                    }
+                ]
+            });
+
+            //Combobox Filters
+            function setupFilter(columnIndex, selectId) {
+                var values = [];
+                $('#stocksTable tbody tr').each(function () {
+                    var cellValue = $(this).find('td').eq(columnIndex).text().trim();
+                    if (cellValue !== "" && !values.includes(cellValue)) {
+                        values.push(cellValue);
+                    }
+                });
+
+                values = values.filter(v => v !== "-").sort((a, b) => {
+                    if (!isNaN(a) && !isNaN(b)) return parseFloat(a) - parseFloat(b);
+                    return a.localeCompare(b);
+                });
+
+                values.unshift("-");
+                values.unshift("الكل");
+
+                values.forEach(function (value) {
+                    if (value !== "الكل") {
+                        $('#' + selectId).append('<option value="' + value + '">' + value + '</option>');
+                    }
+                });
+
+                $('#' + selectId).on('change', function () {
+                    $('#stocksTable tbody tr').each(function () {
+                        var showRow = true;
+                        var filters = [
+                            { col: 2, val: $('#IndicatorFilter').val() },
+                            { col: 12, val: $('#sectorFilter').val() },
+                            { col: 13, val: $('#extraFilter').val() }
+                        ];
+
+                        for (var i = 0; i < filters.length; i++) {
+                            var actualValue = $(this).find('td').eq(filters[i].col).text().trim();
+                            if (filters[i].val !== 'all' && actualValue !== filters[i].val) {
+                                showRow = false;
+                                break;
+                            }
+                        }
+
+                        $(this).toggle(showRow);
+                    });
+                });
+            }
+
+            setupFilter(2, 'IndicatorFilter');
+            setupFilter(12, 'sectorFilter');
+            setupFilter(13, 'extraFilter');
+
+            //Update Table Percentages And Update Database
+            $('#stocksTable').on('blur', 'td.editable', function () {
+                if (isUpdating) return;
+                isUpdating = true;
+
+                var row = $(this).closest('tr');
+                var colIndex = $(this).index();
+
+                function parseNumber(value) {
+                    if (!value) return 0;
+                    value = value.toString().replace('%', '').trim();
+                    return parseFloat(value) || 0;
+                }
+
+                var lastPrice = parseNumber(row.find('td').eq(3).text());
+                var monthlyPeak = parseNumber(row.find('td').eq(4).text());
+                var sixMonthPeak = parseNumber(row.find('td').eq(6).text());
+                var yearPeak = parseNumber(row.find('td').eq(8).text());
+                var allTimePeak = parseNumber(row.find('td').eq(10).text());
+
+                function calcDistancePercent(peak, last) {
+                    if (peak === 0) return "0%";
+                    var percent = ((peak - last) / peak) * 100;
+                    return percent.toFixed(2) + "%";
+                }
+
+                if ([3, 4, 6, 8, 10].includes(colIndex)) {
+                    row.find('td').eq(5).text(calcDistancePercent(monthlyPeak, lastPrice));
+                    row.find('td').eq(7).text(calcDistancePercent(sixMonthPeak, lastPrice));
+                    row.find('td').eq(9).text(calcDistancePercent(yearPeak, lastPrice));
+                    row.find('td').eq(11).text(calcDistancePercent(allTimePeak, lastPrice));
+                }
+
+                var data = {
+                    Code: row.find('td').eq(0).text().trim(),
+                    Name: row.find('td').eq(1).text().trim(),
+                    Indicator: row.find('td').eq(2).text().trim(),
+                    LastPrice: lastPrice,
+                    MonthlyPeak: monthlyPeak,
+                    SixMonthPeak: sixMonthPeak,
+                    YearPeak: yearPeak,
+                    AllTimePeak: allTimePeak,
+                    Sector: row.find('td').eq(12).text().trim(),
+                    ExtraSector: row.find('td').eq(13).text().trim()
+                };
+
+                $.ajax({
+                    url: '@Url.Action("UpdateStock", "Stock")',
+                    type: 'POST',
+                    data: data,
+                    success: function (response) {},
+                    error: function (xhr, status, error) {
+                        alert("فشل التحديث: " + error);
+                    },
+                    complete: function () {
+                        isUpdating = false;
+                    }
+                });
+            });
+
+            $('#stocksTable').on('keydown', 'td.editable', function (e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    $(this).blur();
+                }
+            });
+
+            // معالجة النقر على أزرار الشراء والبيع
+            $('#stocksTable').on('click', '.buy-btn, .sell-btn', function () {
+                var $row = $(this).closest('tr');
+                var stockCode = $row.data('code') || $row.find('td').eq(0).text().trim();
+                var stockName = $row.data('name') || $row.find('td').eq(1).text().trim();
+                var price = parseFloat($row.data('price')) || parseFloat($row.find('td').eq(3).text()) || 0;
+                var tradeType = $(this).hasClass('buy-btn') ? 'Buy' : 'Sell';
+                $(`input[name="tradeType"][value="${tradeType}"]`).prop('checked', true).trigger('change');
+
+                var userId = 1; // استبدل بالـ userId الحقيقي (من Session أو Context)
+
+                // ملء بيانات الفورم
+                $('#tradeModal #stockInput').val(stockCode + ' | ' + stockName);
+                $('#tradeModal #tradeType').val(tradeType);
+                $('#tradeModal #stockPrice').val(price ? price.toFixed(2) : '');
+                $('#tradeModal #quantity').val('');
+                $('#tradeModal #total').val('');
+
+                // تغيير الثيم
+                var $modalContent = $('#tradeModalContent');
+                $modalContent.removeClass('theme-buy theme-sell');
+                $modalContent.addClass(tradeType === 'Buy' ? 'theme-buy' : 'theme-sell');
+
+                        // تحميل بيانات المحافظ بدون الأسهم
+        $.ajax({
+            url: '@Url.Action("GetUserInfo", "Stock")',
+            type: 'GET',
+            data: { userId: userId, processType: tradeType },
+            success: function (response) {
+                $('#walletsAccordion').empty();
+                console.log(response);
+
+                      if (Array.isArray(response.wallets) && response.wallets.length > 0) {
+                          let selectedWalletId = null;
+
+        response.wallets.forEach(function (wallet) {
+            var accordionItem = `
+                <div class="accordion-item" id="walletItem${wallet.walletId}">
+                    <h2 class="accordion-header" id="walletHeading${wallet.walletId}">
+                        <!-- رأس العنصر: يحتوي على الراديو وزر الأكورديون -->
+                        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+                            <!-- الراديو على اليمين (أو اليسار لو حبيت) -->
+                            <div class="form-check">
+                                <label class="wallet-radio-wrapper">
+                                 <input type="radio" name="selectedWallet" class="wallet-radio"
+                                        value="${wallet.walletId}"
+                                        data-brokerage-id="${wallet.brokerageCompanyId}">
+                                          <span class="custom-radio"></span>
+                                </label>
+                            </div>
+
+                            <!-- زرار الأكورديون -->
+                            <button class="accordion-button collapsed flex-grow-1 ms-3" type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#walletCollapse${wallet.walletId}"
+                                aria-expanded="false"
+                                aria-controls="walletCollapse${wallet.walletId}">
+                                <div class="w-100 d-flex justify-content-between align-items-center fw-bold">
+                                    <span class="fw-bold text-end flex-grow-1" dir="rtl">${wallet.brokerageCompanyName || 'غير محدد'}</span>
+                                    <span class="ms-3 text-nowrap" dir="rtl">${wallet.walletName}</span>
+                                    <span class="text-success text-nowrap">السيولة: ${wallet.balance.toLocaleString('en-US')}</span>
+                                </div>
+                            </button>
+                        </div>
+                    </h2>
+
+                    <div id="walletCollapse${wallet.walletId}" class="accordion-collapse collapse" aria-labelledby="walletHeading${wallet.walletId}">
+                        <div class="accordion-body">
+                            <table class="table table-bordered text-end fw-bold">
+                                <thead>
+                                    <tr>
+                                        <th>كود السهم</th>
+                                        <th>اسم السهم</th>
+                                        <th>الكمية</th>
+                                        <th>متوسط السعر</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${wallet.stocks && wallet.stocks.length > 0 ?
+                                        wallet.stocks.map(stock => `
+                                            <tr>
+                                                <td>${stock.stockCode}</td>
+                                                <td>${stock.stockName}</td>
+                                                <td>${stock.quantity.toLocaleString('en-US')}</td>
+                                                <td>${
+                                                    stock.averagePrice >= 1
+                                                        ? stock.averagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                                        : stock.averagePrice.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+                                                }</td>
+                                            </tr>
+                                        `).join('') :
+                                        `<tr><td colspan="4" class="text-center">لا توجد أسهم</td></tr>`
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>`;
+
+            $('#walletsAccordion').append(accordionItem);
+        });
+
+
+        } else {
+            $('#walletsAccordion').html('<p class="text-center">لا توجد محافظ للعرض</p>');
+        }
+
+            },
+            error: function (xhr, status, error) {
+                alert("فشل تحميل بيانات المحافظ: " + error);
+            }
+        });
+
+
+                // فتح الـ Modal
+                var modal = new bootstrap.Modal(document.getElementById('tradeModal'));
+                modal.show();
+            });
+
+            // تأكيد العملية
+                   $('#confirmTradeBtn').on('click', function () {
+            const stockInput = $('#stockInput').val().split('|')[0]?.trim();
+            const type = $('input[name="tradeType"]:checked').val();
+            const price = parseFloat($('#stockPrice').val().replace(/,/g, '')) || 0;
+            const quantity = parseInt($('#quantity').val().replace(/,/g, '')) || 0;
+            const selectedWalletId = $('input[name="selectedWallet"]:checked').val();
+
+            if (!selectedWalletId) {
+                showToast("من فضلك أختر محفظة!", "danger");
+                return;
+            }
+
+            if (!stockInput) {
+                showToast("من فضلك أختر سهمًا!", "danger");
+                return;
+            }
+
+
+            if (!price || price <= 0) {
+                showToast("من فضلك أدخل سعرًا صحيحًا!", "danger");
+                return;
+            }
+
+
+            if (!quantity || quantity <= 0) {
+                showToast("من فضلك أدخل كمية صحيحة!", "danger");
+                return;
+            }
+
+            const total = quantity * price;
+
+            // جلب السيولة والكمية المتاحة من DOM
+            const walletElement = $(`#walletHeading${selectedWalletId}`);
+            const balanceText = walletElement.find('.text-success').text().replace(/[^\d.-]/g, '');
+            const availableBalance = parseFloat(balanceText) || 0;
+
+            // نجيب بيانات الأسهم المملوكة من الجدول بتاع المحفظة
+            let ownedQuantity = 0;
+            $(`#walletCollapse${selectedWalletId} tbody tr`).each(function () {
+                const code = $(this).find('td').eq(0).text().trim();
+                if (code === stockInput) {
+                    ownedQuantity = parseInt($(this).find('td').eq(2).text().replace(/,/g, '')) || 0;
+                }
+            });
+
+            // تحقق الشراء
+            if (type === "Buy" && total > availableBalance) {
+                showToast("رصيد المحفظة غير كافي لشراء هذا السهم!", "danger");
+                return;
+            }
+
+            // تحقق البيع
+            if (type === "Sell" && quantity > ownedQuantity) {
+                showToast("لا تملك هذه الكمية من السهم في المحفظة المختارة!", "danger");
+                return;
+            }
+
+            // جوا confirmTradeBtn click handler
+            const $selectedWallet = $('input[name="selectedWallet"]:checked'); // ✅ أضف السطر ده
+
+            var brokerageCompanyId = $selectedWallet.data('brokerage-id');
+            const stockInputParts = $('#stockInput').val().split('|');
+            const stockCode = stockInputParts[0]?.trim();
+            const stockName = stockInputParts[1]?.trim();
+
+                    // لو كله تمام
+            const data = {
+                UserId: 1, // TODO: استبدله بقيم حقيقية
+                WalletId: selectedWalletId,
+                StockCode: stockCode,
+                StockName: stockName,
+                ProcessType: type,
+                ExecutionPrice: price,
+                ExecutionQuantity: quantity,
+                BrokerageCompanyId: brokerageCompanyId
+            };
+
+            $.ajax({
+                url: '@Url.Action("ExecuteTrade", "Stock")',
+                type: 'POST',
+                data: data,
+                success: function (response) {
+                    showToast("تم تنفيذ العملية بنجاح!", "success");
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('tradeModal'));
+                    modal.hide();
+                },
+                error: function (xhr, status, error) {
+                showToast("فشل تنفيذ العملية:!", "danger");
+                }
+            });
+        });
+
+
+                    $(document).on('change', '.wallet-radio', function () {
+            $('.accordion-item').removeClass('selected-wallet'); // شيل التحديد القديم
+            $(this).closest('.accordion-item').addClass('selected-wallet'); // ضيف على الحالي
+        });
+
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+               const quantityInput = document.getElementById('quantity');
+        const priceInput = document.getElementById('stockPrice');
+        const totalInput = document.getElementById('total');
+
+        // تحديث الاجمالي
+        function updateTotal() {
+            const qty = parseFloat(quantityInput.value.replace(/,/g, '')) || 0;
+            const price = parseFloat(priceInput.value.replace(/,/g, '')) || 0;
+            const total = qty * price;
+            totalInput.value = total.toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        // تنسيق الكمية live أثناء الكتابة بدون علامات عشرية وبالفواصل
+        quantityInput.addEventListener('input', function (e) {
+            let cursorPosition = this.selectionStart;
+            let originalLength = this.value.length;
+             const quantityInput = document.getElementById('quantity');
+    const priceInput = document.getElementById('stockPrice');
+    const totalInput = document.getElementById('total');
+
+    // تحديث الاجمالي 
+    function updateTotal() {
+        const qty = parseFloat(quantityInput.value.replace(/,/g, '')) || 0;
+        const price = parseFloat(priceInput.value.replace(/,/g, '')) || 0;
+        const total = qty * price;
+        totalInput.value = total.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    // تنسيق الكمية live أثناء الكتابة بدون علامات عشرية وبالفواصل
+    quantityInput.addEventListener('input', function (e) {
+        let cursorPosition = this.selectionStart;
+        let originalLength = this.value.length;
+
+        // احذف كل غير الأرقام
+        let value = this.value.replace(/\D/g, '');
+
+        if (value === '') {
+            this.value = '';
+            updateTotal();
+            return;
+        }
+
+        // حوّل الرقم مع الفواصل
+        let formattedValue = Number(value).toLocaleString('en-US');
+
+        let newLength = formattedValue.length;
+        cursorPosition = cursorPosition + (newLength - originalLength);
+
+        this.value = formattedValue;
+        this.setSelectionRange(cursorPosition, cursorPosition);
+
+        updateTotal();
+    });
+
+    // تحديث الاجمالي live عند تغيير السعر (مافيش تنسيق live له هنا)
+    priceInput.addEventListener('input', updateTotal);
+
+    // تنسيق السعر عند الخروج (blur) عشان يكون برقم عشري 2 فقط
+    priceInput.addEventListener('blur', function () {
+        let priceVal = parseFloat(priceInput.value.replace(/,/g, ''));
+        if (!isNaN(priceVal)) {
+            priceInput.value = priceVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            priceInput.value = '';
+        }
+        updateTotal();
+    });
+
+    // لو عايز تنسق الكمية برضه عند الخروج بدون تغيير لأننا شكلها متنسقة live، ممكن تبقي بس
+    quantityInput.addEventListener('blur', function () {
+        // نخليها برضه رقم صحيح بدون فواصل لو حبيت:
+        let qtyVal = parseInt(quantityInput.value.replace(/,/g, ''), 10);
+        if (!isNaN(qtyVal)) {
+            quantityInput.value = qtyVal.toLocaleString('en-US');
+        } else {
+            quantityInput.value = '';
+        }
+        updateTotal();
+    });
+            // احذف كل غير الأرقام
+            let value = this.value.replace(/\D/g, '');
+
+            if (value === '') {
+                this.value = '';
+                updateTotal();
+                return;
+            }
+
+            // حوّل الرقم مع الفواصل
+            let formattedValue = Number(value).toLocaleString('en-US');
+
+            let newLength = formattedValue.length;
+            cursorPosition = cursorPosition + (newLength - originalLength);
+
+            this.value = formattedValue;
+            this.setSelectionRange(cursorPosition, cursorPosition);
+
+            updateTotal();
+        });
+
+        // تحديث الاجمالي live عند تغيير السعر (مافيش تنسيق live له هنا)
+        priceInput.addEventListener('input', updateTotal);
+
+        // تنسيق السعر عند الخروج (blur) عشان يكون برقم عشري 2 فقط
+        priceInput.addEventListener('blur', function () {
+            let priceVal = parseFloat(priceInput.value.replace(/,/g, ''));
+            if (!isNaN(priceVal)) {
+                priceInput.value = priceVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else {
+                priceInput.value = '';
+            }
+            updateTotal();
+        });
+
+        // لو عايز تنسق الكمية برضه عند الخروج بدون تغيير لأننا شكلها متنسقة live، ممكن تبقي بس
+        quantityInput.addEventListener('blur', function () {
+            // نخليها برضه رقم صحيح بدون فواصل لو حبيت:
+            let qtyVal = parseInt(quantityInput.value.replace(/,/g, ''), 10);
+            if (!isNaN(qtyVal)) {
+                quantityInput.value = qtyVal.toLocaleString('en-US');
+            } else {
+                quantityInput.value = '';
+            }
+            updateTotal();
+        });
+        });
+
+
+         function showToast(message, type = 'primary') {
+            const toastEl = document.getElementById('liveToast');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toastEl.className = `toast text-white bg-${type} border-0 position-relative shadow`;
+            toastMessage.textContent = message;
+
+            const toast = new bootstrap.Toast(toastEl);
+            toast.show();
+        }
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const $availableText = $('#availableQuantityText');
+            const $remainingBalanceText = $('#remainingBalanceText');
+            const quantityInput = document.getElementById('quantity');
+            const priceInput = document.getElementById('stockPrice');
+            const stockInput = document.getElementById('stockInput');
+
+            // دالة تفك التنسيق وتحول النص لرقم عشري صحيح
+            function unformat(value) {
+                return parseFloat((value || '0').toString().replace(/,/g, '')) || 0;
+            }
+
+            // دالة تنسيق الرقم مع فاصلة آلاف ورقمين عشريين
+            function formatNumber(value) {
+                return value.toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            }
+
+            // جلب السيولة الحالية من الهيدر (span .text-success)
+            function getCurrentBalance(walletId) {
+                const balanceText = $(`#walletHeading${walletId} .text-success`).text() || '';
+                // balanceText = "السيولة: 123,456.78" فلازم نجيب الرقم بس
+                const numText = balanceText.replace(/[^\d.,]/g, ''); // يشيل كل الحروف
+                return unformat(numText);
+            }
+
+            // جلب كمية السهم الموجود في المحفظة للبيع
+            function getOwnedQuantity(walletId, stockCode) {
+                let ownedQty = 0;
+                $(`#walletCollapse${walletId} tbody tr`).each(function () {
+                    const code = $(this).find('td').eq(0).text().trim();
+                    if (code === stockCode) {
+                        ownedQty = parseInt($(this).find('td').eq(2).text().replace(/,/g, '')) || 0;
+                    }
+                });
+                return ownedQty;
+            }
+
+            // تحديث نص الكمية المتاحة حسب نوع العملية والمحفظة والسهم والسعر
+            function updateAvailableQuantityText() {
+                const selectedWalletId = $('input[name="selectedWallet"]:checked').val();
+                const stockValue = stockInput.value.trim();
+                const tradeType = $('input[name="tradeType"]:checked').val();
+
+                if (!selectedWalletId) {
+                    $availableText.text('');
+                    return;
+                }
+
+                // ناخد كود السهم من قيمة الـ input اللي شكلها "AALR | اسم السهم"
+                const stockCode = stockValue.includes('|') ? stockValue.split('|')[0].trim() : stockValue;
+
+                if (!stockCode) {
+                    $availableText.text('');
+                    return;
+                }
+
+                if (tradeType === 'Buy') {
+                    const balance = getCurrentBalance(selectedWalletId);
+                    const price = unformat(priceInput.value);
+                    if (price > 0) {
+                        const maxQty = Math.floor(balance / price);
+                        $availableText.text(`الكمية المتاحة للشراء: ${maxQty.toLocaleString('en-US')}`).css('font-size', '1.1rem');
+                    } else {
+                        $availableText.text('يرجى إدخال سعر السهم لحساب الكمية المتاحة للشراء');
+                    }
+                } else if (tradeType === 'Sell') {
+                    const ownedQty = getOwnedQuantity(selectedWalletId, stockCode);
+                    $availableText.text(`الكمية المتاحة للبيع: ${ownedQty.toLocaleString('en-US')}`).css('font-size', '1.1rem');
+                } else {
+                    $availableText.text('');
+                }
+            }
+
+            // تحديث السيولة المتبقية بعد العملية
+            function updateRemainingBalance() {
+                const selectedWalletId = $('input[name="selectedWallet"]:checked').val();
+                if (!selectedWalletId) {
+                    $remainingBalanceText.text('');
+                    $('#total').val('');
+                    return;
+                }
+
+                const tradeType = $('input[name="tradeType"]:checked').val();
+                const balance = getCurrentBalance(selectedWalletId);
+                const qty = unformat(quantityInput.value);
+                const price = unformat(priceInput.value);
+
+                if (qty <= 0 || price <= 0) {
+                    $remainingBalanceText.text('');
+                    $('#total').val('');
+                    return;
+                }
+
+                const total = qty * price;
+                let remaining;
+
+                if (tradeType === 'Buy') {
+                    remaining = balance - total;
+                } else if (tradeType === 'Sell') {
+                    remaining = balance + total;
+                } else {
+                    remaining = balance;
+                }
+
+                $remainingBalanceText.text(`السيولة بعد العملية: ${formatNumber(Math.max(remaining, 0))}`);
+                $('#total').val(formatNumber(total));
+            }
+
+            // تعطيل الفورم (عناصر الإدخال والزرار) عدا راديو اختيار المحفظة
+            const formElements = $('#tradeForm').find('input, select, textarea, button').not('input[name="selectedWallet"]');
+            function setFormDisabled(disabled) {
+                formElements.prop('disabled', disabled);
+            }
+
+            // تفريغ الحقول عدا راديو المحفظة
+            function clearFormInputs() {
+                formElements.each(function () {
+                    const el = $(this);
+                    if (el.is('input[type="text"], textarea')) {
+                        el.val('');
+                    } else if (el.is('select')) {
+                        el.prop('selectedIndex', 0);
+                    }
+                });
+                $availableText.text('');
+                $remainingBalanceText.text('');
+                $('#total').val('');
+            }
+
+            // في بداية التحميل: نعطل الفورم كله عدا المحفظة
+            setFormDisabled(true);
+
+            // لما يختار المستخدم محفظة
+            $(document).on('change', 'input[name="selectedWallet"]', function () {
+                // clearFormInputs();
+                setFormDisabled(false);
+                updateAvailableQuantityText();
+                updateRemainingBalance();
+            });
+
+            // لما يتغير أي من القيم: نوع العملية، السهم، السعر، الكمية
+            $(document).on('input change', '#stockInput, #stockPrice, #quantity, input[name="tradeType"]', function () {
+                updateAvailableQuantityText();
+                updateRemainingBalance();
+            });
+
+                    // لما المودال يفتح
+        $('#tradeModal').on('shown.bs.modal', function () {
+            // تعطيل الفورم تمامًا باستثناء اختيار المحفظة
+            setFormDisabled(true);
+
+            // اختيار المحفظة يتم تفريغه لو حابب تبدأ من جديد
+            $('input[name="selectedWallet"]').prop('checked', false);
+        });
+
+        });
+    </script>
+
+
+}
